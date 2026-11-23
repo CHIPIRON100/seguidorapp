@@ -1,4 +1,4 @@
-const SHELL = 'shell-v1';
+const SHELL = 'shell-v2';
 const TILES = 'tiles-v1';
 const FILES = ['./', 'index.html', 'manifest.json', 'icon.svg',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
@@ -62,8 +62,8 @@ self.addEventListener('fetch', e => {
   const r = e.request;
   if (r.method !== 'GET') return;
   const u = new URL(r.url);
-  if (u.hostname === 'sigpac-hubcloud.es') return;
-  if (u.hostname.endsWith('ign.es') || u.hostname === 'wms.mapa.gob.es') { e.respondWith(tile(r)); return; }
+  if (u.hostname === 'sigpac-hubcloud.es' && !u.pathname.startsWith('/wms')) return;
+  if (u.hostname.endsWith('ign.es') || u.hostname === 'sigpac-hubcloud.es') { e.respondWith(tile(r)); return; }
   if (u.origin === self.location.origin) { e.respondWith(shell(r, true)); return; }
   if (u.hostname === 'unpkg.com') e.respondWith(shell(r, false));
 });

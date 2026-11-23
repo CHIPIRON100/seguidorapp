@@ -88,14 +88,15 @@ const store = {
 
 /* ---------- Configuración de servicios (si alguno cambia, se ajusta aquí) ---------- */
 const CFG = {
-  wms: 'https://wms.mapa.gob.es/sigpac/wms',
-  wmsLayer: 'recinto',
+  wms: 'https://sigpac-hubcloud.es/wms',
+  wmsLayer: 'AU.Sigpac:recinto',
+  paisajeLayers: 'AU.Sigpac:e_paisaje,AU.Sigpac:e_paisaje_linea,AU.Sigpac:e_paisaje_punto',
   query: 'https://sigpac-hubcloud.es/servicioconsultassigpac/query/'
 };
 const USOS = {TA:'Tierra arable',TH:'Huerta',VI:'Viñedo',OV:'Olivar',FY:'Frutal',FS:'Frutal de cáscara',FL:'Frutal de cáscara',CI:'Cítricos',IM:'Improductivo',ED:'Edificaciones',FO:'Forestal',PA:'Pasto arbolado',PR:'Pasto arbustivo',PS:'Pastizal',IV:'Invernadero',CA:'Viales',AG:'Agua',ZU:'Zona urbana',ZC:'Zona concentrada',EP:'Elemento del paisaje',OF:'Otros frutales'};
 const PROV = ['Álava','Albacete','Alicante','Almería','Ávila','Badajoz','Baleares','Barcelona','Burgos','Cáceres','Cádiz','Castellón','Ciudad Real','Córdoba','A Coruña','Cuenca','Girona','Granada','Guadalajara','Gipuzkoa','Huelva','Huesca','Jaén','León','Lleida','La Rioja','Lugo','Madrid','Málaga','Murcia','Navarra','Ourense','Asturias','Palencia','Las Palmas','Pontevedra','Salamanca','S.C. Tenerife','Cantabria','Segovia','Sevilla','Soria','Tarragona','Teruel','Toledo','Valencia','Valladolid','Bizkaia','Zamora','Zaragoza','Ceuta','Melilla'];
 
-const cfg = Object.assign({ base: 'orto', rec: true, op: 0.8 }, store.get('cfg', {}));
+const cfg = Object.assign({ base: 'orto', rec: true, pai: false, op: 0.8 }, store.get('cfg', {}));
 let saved = store.get('saved', []);
 const diag = { ok: 0, err: 0 };
 
@@ -112,9 +113,16 @@ function buildRec() {
   rec.on('tileerror', () => diag.err++);
   if (cfg.rec) rec.addTo(map);
 }
+let pai = null;
+function buildPai() {
+  if (pai) map.removeLayer(pai);
+  pai = L.tileLayer.wms(CFG.wms, { layers: CFG.paisajeLayers, format: 'image/png', transparent: true, version: '1.3.0', minZoom: 13, maxZoom: 20, zIndex: 6, opacity: cfg.op, attribution: 'SIGPAC © FEGA (CC BY 4.0)' });
+  if (cfg.pai) pai.addTo(map);
+}
 function setBase(id) { Object.values(bases).forEach(l => map.removeLayer(l)); bases[id].addTo(map); cfg.base = id; store.set('cfg', cfg); }
 setBase(cfg.base);
 buildRec();
+buildPai();
 discoverLayer();
 
 async function discoverLayer() {
@@ -267,6 +275,7 @@ function viewLayers() {
   openSheet('<h2 style="margin-bottom:12px">Capas</h2><h3 style="margin-top:0">Mapa base</h3><div class="tiles">' +
     t('orto', 'Ortofoto', 'linear-gradient(135deg,#9DB36A 0 40%,#C8B878 40% 70%,#A98B62 70%)') + t('calle', 'Callejero', 'repeating-linear-gradient(90deg,#EDE9DD 0 18px,#fff 18px 24px)') + t('topo', 'Topográfico', 'repeating-radial-gradient(circle at 50% 60%,#E4EBD6 0 8px,#B58B5A 8px 9px)') + '</div>' +
     '<h3>Capas del SIGPAC</h3><div class="sw"><div><b>Recintos</b><small>Límites de parcelas y recintos (zoom 13 o más)</small></div><button class="tg' + (cfg.rec ? ' on' : '') + '" data-act="rec" role="switch" aria-checked="' + cfg.rec + '" aria-label="Recintos"></button></div>' +
+    '<div class="sw"><div><b>Elementos del paisaje</b><small>Setos, lindes, charcas y árboles</small></div><button class="tg' + (cfg.pai ? ' on' : '') + '" data-act="pai" role="switch" aria-checked="' + cfg.pai + '" aria-label="Elementos del paisaje"></button></div>' +
     '<div style="display:flex;justify-content:space-between"><label for="op">Opacidad de las capas</label><b id="opv">' + Math.round(cfg.op * 100) + ' %</b></div><input id="op" type="range" min="0" max="100" value="' + Math.round(cfg.op * 100) + '" style="padding:0;height:32px;border:none;accent-color:#1F7A4D">' +
     '<h3>Diagnóstico</h3><div class="sub" style="font-size:12px;word-break:break-word">Teselas del SIGPAC: ' + diag.ok + ' correctas, ' + diag.err + ' con error.<br>Capa usada: ' + esc(CFG.wmsLayer) + '<br>Capas del servicio: ' + esc(diag.layers || 'consultando…') + '</div>' +
     '<div class="btns"><button class="btn pri" data-act="close">Listo</button></div>', 'layers');
@@ -315,6 +324,7 @@ document.addEventListener('click', e => {
     case 'me': follow = true; if (here) map.setView(here, Math.max(map.getZoom(), 17)); break;
     case 'base': setBase(d.id); viewLayers(); break;
     case 'rec': cfg.rec = !cfg.rec; store.set('cfg', cfg); if (cfg.rec) rec.addTo(map); else map.removeLayer(rec); viewLayers(); break;
+    case 'pai': cfg.pai = !cfg.pai; store.set('cfg', cfg); if (cfg.pai) pai.addTo(map); else map.removeLayer(pai); viewLayers(); break;
     case 'measure': if (meas.on) closeSheet(); else { cleanup('measure'); startMeasure(); } break;
     case 'mm': meas.mode = d.m; drawMeasure(); break;
     case 'mundo': meas.pts.pop(); drawMeasure(); break;
@@ -330,7 +340,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('submit', e => { if (e.target.id === 'fs') { e.preventDefault(); doSearch(e.target); } });
 document.addEventListener('input', e => {
-  if (e.target.id === 'op') { cfg.op = Number(e.target.value) / 100; $('#opv').textContent = e.target.value + ' %'; if (rec) rec.setOpacity(cfg.op); store.set('cfg', cfg); }
+  if (e.target.id === 'op') { cfg.op = Number(e.target.value) / 100; $('#opv').textContent = e.target.value + ' %'; if (rec) rec.setOpacity(cfg.op); if (pai) pai.setOpacity(cfg.op); store.set('cfg', cfg); }
 });
 
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
