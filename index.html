@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12201A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Visor de Parcelas</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--bg:#F3F6F3;--fg:#12201A;--mut:#5A6B62;--line:#B9C4BD;--g:#1F7A4D;--dk:#12201A;--soft:#E1E8E3}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--fg);background:var(--dk);-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button{font:inherit;cursor:pointer;color:inherit}
+[hidden]{display:none!important}
+#map{position:fixed;inset:0;background:#7C9A5A}
+.leaflet-container{font:inherit}
+.leaflet-control-attribution{font-size:10px}
+.ui{position:fixed;z-index:1000}
+.searchbar{left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;background:#fff;border:none;border-radius:26px;box-shadow:0 2px 10px rgba(18,32,26,.28);color:#3E4F46;font-weight:500;text-align:left}
+.chip{left:12px;top:calc(76px + env(safe-area-inset-top));height:32px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--dk);color:#fff;border-radius:16px;font-size:12px;font-weight:600}
+.dot{width:8px;height:8px;border-radius:4px;background:#5BE08E}
+.dot.off{background:#F0B429}
+.fab{width:48px;height:48px;border-radius:24px;border:none;background:#fff;box-shadow:0 2px 8px rgba(18,32,26,.3);display:flex;align-items:center;justify-content:center;right:12px}
+.fab.on{background:var(--g);color:#fff}
+.fab.me{width:52px;height:52px;border-radius:26px;bottom:calc(20px + env(safe-area-inset-bottom))}
+body.so .fab.me{display:none}
+#sheet{left:0;right:0;bottom:0;max-height:78vh;overflow:auto;background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -4px 16px rgba(18,32,26,.22);padding:10px 16px calc(20px + env(safe-area-inset-bottom))}
+.handle{width:36px;height:4px;border-radius:2px;background:#C3CCC6;margin:0 auto 12px}
+h2{margin:0;font-size:19px;line-height:24px;font-weight:700}
+h3{margin:16px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#3E4F46}
+.sub{color:#3E4F46}.ref{font-size:12px;color:var(--mut);letter-spacing:.03em;margin-top:2px}
+.tag{display:inline-block;padding:3px 10px;border-radius:12px;background:#E3F1E8;color:#14573A;font-size:12px;font-weight:600;margin-bottom:6px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.cell{background:var(--bg);border-radius:12px;padding:10px 12px}
+.cell small{display:block;color:var(--mut);font-size:12px}.cell b{font-size:18px}
+.btns{display:flex;gap:10px;margin-top:12px}
+.btn{flex:1;min-height:48px;border:1.5px solid var(--line);background:#fff;border-radius:12px;font-weight:600;padding:0 12px;display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--fg)}
+.btn.pri{background:var(--g);border-color:var(--g);color:#fff}
+.src{margin-top:12px;text-align:center;font-size:12px;color:var(--mut)}
+label{display:block;font-size:13px;font-weight:600;color:#3E4F46;margin-bottom:4px}
+input,select{width:100%;height:48px;padding:0 12px;border:1.5px solid var(--line);border-radius:12px;font:inherit;background:#fff;color:var(--fg)}
+.frow{display:flex;gap:10px;margin-bottom:12px}.frow>div{flex:1;min-width:0}
+.seg{display:flex;gap:4px;padding:4px;background:var(--soft);border-radius:12px;margin-bottom:12px}
+.seg button{flex:1;height:40px;border:none;border-radius:9px;background:transparent;font-weight:500;color:#3E4F46}
+.seg button.on{background:#fff;font-weight:700;color:var(--fg);box-shadow:0 1px 3px rgba(18,32,26,.18)}
+.tiles{display:flex;gap:10px}.tiles button{flex:1;padding:0 0 6px;border:1.5px solid var(--line);border-radius:12px;background:#fff;font-size:13px;overflow:hidden}
+.tiles button i{display:block;height:46px;margin-bottom:6px}
+.tiles button.on{border:2px solid var(--g);font-weight:700;color:#14573A}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px}
+.sw small{display:block;color:var(--mut)}
+.tg{flex:none;position:relative;width:52px;height:32px;border:none;border-radius:16px;background:#78877E}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:13px;background:#fff;transition:transform .15s}
+.tg.on{background:var(--g)}.tg.on::after{transform:translateX(20px)}
+.item{display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 0;border-bottom:1px solid var(--soft)}
+.item .m{flex:1;min-width:0;text-align:left;border:none;background:none;padding:0}
+.item .m b{display:block}.item .m span{color:var(--mut);font-size:13px}
+.x{width:44px;height:44px;border:none;background:none;color:var(--mut)}
+.big{font-size:30px;font-weight:700;line-height:36px}
+.msg{padding:10px 12px;border-radius:12px;background:#FFF4DB;color:#5C4300;font-size:13px;margin:10px 0}
+.seglbl{background:var(--dk);color:#fff;border-radius:8px;padding:2px 7px;font-size:12px;font-weight:700;white-space:nowrap;width:auto!important;height:auto!important;transform:translate(-50%,-50%)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<button class="ui searchbar" data-act="search"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F7A4D" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span>Buscar parcela o referencia</span></button>
+<div class="ui chip"><span class="dot off" id="dot"></span><span id="gps">Buscando GPS…</span></div>
+<button class="ui fab" style="top:calc(122px + env(safe-area-inset-top))" data-act="layers" aria-label="Capas"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></button>
+<button class="ui fab" id="bMeasure" style="top:calc(178px + env(safe-area-inset-top))" data-act="measure" aria-label="Medir"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="8" rx="1.5"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></svg></button>
+<button class="ui fab" style="top:calc(234px + env(safe-area-inset-top))" data-act="saved" aria-label="Mis parcelas"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v17l-6-4-6 4z"/></svg></button>
+<button class="ui fab me" id="bMe" data-act="me" aria-label="Centrar en mi posición"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1A5FC4" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+<div class="ui" id="sheet" hidden></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ---------- Configuración de servicios (si alguno cambia, se ajusta aquí) ---------- */
+const CFG = {
+  wms: 'https://wms.mapa.gob.es/sigpac/wms',
+  wmsLayer: 'recinto',
+  query: 'https://sigpac-hubcloud.es/servicioconsultassigpac/query/'
+};
+const USOS = {TA:'Tierra arable',TH:'Huerta',VI:'Viñedo',OV:'Olivar',FY:'Frutal',FS:'Frutal de cáscara',FL:'Frutal de cáscara',CI:'Cítricos',IM:'Improductivo',ED:'Edificaciones',FO:'Forestal',PA:'Pasto arbolado',PR:'Pasto arbustivo',PS:'Pastizal',IV:'Invernadero',CA:'Viales',AG:'Agua',ZU:'Zona urbana',ZC:'Zona concentrada',EP:'Elemento del paisaje',OF:'Otros frutales'};
+const PROV = ['Álava','Albacete','Alicante','Almería','Ávila','Badajoz','Baleares','Barcelona','Burgos','Cáceres','Cádiz','Castellón','Ciudad Real','Córdoba','A Coruña','Cuenca','Girona','Granada','Guadalajara','Gipuzkoa','Huelva','Huesca','Jaén','León','Lleida','La Rioja','Lugo','Madrid','Málaga','Murcia','Navarra','Ourense','Asturias','Palencia','Las Palmas','Pontevedra','Salamanca','S.C. Tenerife','Cantabria','Segovia','Sevilla','Soria','Tarragona','Teruel','Toledo','Valencia','Valladolid','Bizkaia','Zamora','Zaragoza','Ceuta','Melilla'];
+
+const cfg = Object.assign({ base: 'orto', rec: true, op: 0.8 }, store.get('cfg', {}));
+let saved = store.get('saved', []);
+const diag = { ok: 0, err: 0 };
+
+/* ---------- Mapa ---------- */
+const map = L.map('map', { zoomControl: false, maxZoom: 20 }).setView([40.0, -3.6], 6);
+map.attributionControl.setPrefix(false);
+const wmts = (svc, layer, nz) => L.tileLayer('https://www.ign.es/wmts/' + svc + '?request=GetTile&service=WMTS&VERSION=1.0.0&Layer=' + layer + '&Style=default&Format=image/jpeg&TileMatrixSet=GoogleMapsCompatible&TileMatrix={z}&TileRow={y}&TileCol={x}', { maxZoom: 20, maxNativeZoom: nz, zIndex: 1, attribution: '© IGN · PNOA' });
+const bases = { orto: wmts('pnoa-ma', 'OI.OrthoimageCoverage', 19), calle: wmts('ign-base', 'IGNBaseTodo', 19), topo: wmts('mapa-raster', 'MTN', 17) };
+let rec = null;
+function buildRec() {
+  if (rec) map.removeLayer(rec);
+  rec = L.tileLayer.wms(CFG.wms, { layers: CFG.wmsLayer, format: 'image/png', transparent: true, version: '1.3.0', minZoom: 13, maxZoom: 20, zIndex: 5, opacity: cfg.op, attribution: 'SIGPAC © FEGA (CC BY 4.0)' });
+  rec.on('tileload', () => diag.ok++);
+  rec.on('tileerror', () => diag.err++);
+  if (cfg.rec) rec.addTo(map);
+}
+function setBase(id) { Object.values(bases).forEach(l => map.removeLayer(l)); bases[id].addTo(map); cfg.base = id; store.set('cfg', cfg); }
+setBase(cfg.base);
+buildRec();
+discoverLayer();
+
+async function discoverLayer() {
+  try {
+    const r = await fetch(CFG.wms + '?SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0');
+    const x = new DOMParser().parseFromString(await r.text(), 'text/xml');
+    const names = [...x.getElementsByTagNameNS('*', 'Layer')].map(l => { const n = [...l.children].find(c => c.localName === 'Name'); return n ? n.textContent : null; }).filter(Boolean);
+    diag.layers = names.join(', ');
+    const hit = names.find(n => /recinto/i.test(n) && !/parcela/i.test(n)) || names.find(n => /recinto/i.test(n));
+    if (hit && hit !== CFG.wmsLayer) { CFG.wmsLayer = hit; buildRec(); }
+  } catch (e) { diag.layers = 'no disponible (' + e.message + ')'; }
+}
+
+/* ---------- GPS ---------- */
+let me = null, acc = null, follow = true, here = null;
+function setGps(txt, ok) { $('#gps').textContent = txt; $('#dot').className = 'dot' + (ok ? '' : ' off'); }
+function onPos(p) {
+  here = [p.coords.latitude, p.coords.longitude];
+  if (!me) {
+    acc = L.circle(here, { radius: p.coords.accuracy, color: '#1A73E8', weight: 1.5, opacity: .45, fillColor: '#1A73E8', fillOpacity: .16, interactive: false }).addTo(map);
+    me = L.circleMarker(here, { radius: 9, color: '#fff', weight: 3.5, fillColor: '#1A73E8', fillOpacity: 1, interactive: false }).addTo(map);
+    map.setView(here, 17);
+  } else {
+    me.setLatLng(here); acc.setLatLng(here); acc.setRadius(p.coords.accuracy);
+    if (follow) map.panTo(here);
+  }
+  setGps('GPS activo · ±' + Math.round(p.coords.accuracy) + ' m', true);
+}
+function onPosErr(e) { setGps(e.code === 1 ? 'GPS sin permiso' : 'Buscando GPS…', false); }
+if (navigator.geolocation) navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+else setGps('Sin GPS en este navegador', false);
+map.on('dragstart', () => { follow = false; $('#bMe').style.opacity = .85; });
+
+/* ---------- Geometría ---------- */
+const R = 6371008.8, rad = Math.PI / 180;
+const hav = (a, b) => { const dLa = (b[0] - a[0]) * rad, dLo = (b[1] - a[1]) * rad; const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+const ringArea = p => { let s = 0; for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; s += (b[1] - a[1]) * rad * (2 + Math.sin(a[0] * rad) + Math.sin(b[0] * rad)); } return Math.abs(s * R * R / 2); };
+const fmtM = m => m < 1000 ? Math.round(m) + ' m' : (m / 1000).toLocaleString('es-ES', { maximumFractionDigits: 2 }) + ' km';
+const fmtHa = m2 => (m2 / 10000).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ha';
+function wktRings(w) {
+  const out = [];
+  String(w || '').replace(/\(([^()]+)\)/g, (_, body) => {
+    const ring = body.trim().split(/\s*,\s*/).map(p => p.trim().split(/\s+/).map(Number)).filter(c => c.length >= 2 && isFinite(c[0]) && isFinite(c[1]));
+    if (ring.length > 2 && ring.every(c => Math.abs(c[0]) <= 180 && Math.abs(c[1]) <= 90)) out.push(ring.map(c => [c[1], c[0]]));
+    return '';
+  });
+  return out;
+}
+function geoRings(g) {
+  if (!g || !g.coordinates) return [];
+  const polys = g.type === 'MultiPolygon' ? g.coordinates : g.type === 'Polygon' ? [g.coordinates] : [];
+  const out = []; polys.forEach(p => p.forEach(r => out.push(r.map(c => [c[1], c[0]])))); return out;
+}
+
+/* ---------- Hoja inferior ---------- */
+const sheet = $('#sheet');
+let cur = null, hi = null, curInfo = null;
+function openSheet(html, kind) { cleanup(kind); sheet.innerHTML = '<div class="handle"></div>' + html; sheet.hidden = false; document.body.classList.add('so'); cur = kind; }
+function closeSheet() { cleanup(null); sheet.hidden = true; document.body.classList.remove('so'); cur = null; }
+function cleanup(next) {
+  if (cur === 'measure' && next !== 'measure') endMeasure();
+  if (cur === 'info' && next !== 'info') clearHi();
+}
+function clearHi() { if (hi) { map.removeLayer(hi); hi = null; } }
+
+/* ---------- Consulta de parcelas ---------- */
+function norm(o) {
+  const a = o && o.properties ? Object.assign({}, o.properties, o) : (o || {});
+  const k = {}; Object.keys(a).forEach(n => k[n.toLowerCase()] = a[n]);
+  const g = n => (k[n] != null ? k[n] : '');
+  const parts = [g('provincia'), g('municipio'), g('agregado') || 0, g('zona') || 0, g('poligono'), g('parcela'), g('recinto')];
+  const rings = k.wkt ? wktRings(k.wkt) : (k.geometry ? geoRings(typeof k.geometry === 'string' ? safeJson(k.geometry) : k.geometry) : []);
+  let center = null;
+  if (rings.length) { const b = L.latLngBounds(rings[0]); center = [b.getCenter().lat, b.getCenter().lng]; }
+  let ha = null;
+  if (rings.length) ha = rings.reduce((s, r) => s + ringArea(r), 0) / 10000;
+  else if (k.superficie !== undefined && k.superficie !== '') { const v = Number(k.superficie); ha = v >= 100 ? v / 10000 : v; }
+  return { ref: parts.join(':'), pol: g('poligono'), parc: g('parcela'), rec: g('recinto'), uso: String(g('uso_sigpac') || g('uso') || '').toUpperCase(), ha, pend: g('pendiente_media'), riego: g('coef_regadio'), alt: g('altitud'), rings, center };
+}
+const safeJson = s => { try { return JSON.parse(s); } catch (e) { return null; } };
+const isSaved = ref => saved.some(s => s.ref === ref);
+function openInfo(o, fit) {
+  curInfo = o;
+  clearHi();
+  if (o.rings.length) {
+    hi = L.polygon(o.rings, { color: '#FFD84D', weight: 3.5, fillColor: '#FFE55A', fillOpacity: .22, interactive: false }).addTo(map);
+    if (fit) map.fitBounds(hi.getBounds(), { paddingBottomRight: [20, 300], paddingTopLeft: [20, 120], maxZoom: 18 });
+  }
+  const dist = (here && o.center) ? fmtM(hav(here, o.center)) : '—';
+  const cell = (l, v) => '<div class="cell"><small>' + l + '</small><b>' + esc(v) + '</b></div>';
+  openSheet(
+    '<div class="tag">' + esc(o.uso || '—') + (USOS[o.uso] ? ' · ' + esc(USOS[o.uso]) : '') + '</div>' +
+    '<h2>Parcela ' + esc(o.parc) + ' · Polígono ' + esc(o.pol) + (o.rec !== '' ? ' · Recinto ' + esc(o.rec) : '') + '</h2>' +
+    '<div class="ref">' + esc(o.ref) + '</div>' +
+    '<div class="grid">' + cell('Superficie', o.ha != null ? o.ha.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ha' : '—') + cell('Distancia a ti', dist) +
+    (o.pend !== '' ? cell('Pendiente media', o.pend + ' %') : '') + (o.riego !== '' ? cell('Coef. de regadío', o.riego + ' %') : '') + (o.alt !== '' ? cell('Altitud', o.alt + ' m') : '') + '</div>' +
+    '<div class="btns"><button class="btn pri" data-act="save">' + (isSaved(o.ref) ? 'Quitar de mis parcelas' : 'Guardar en mis parcelas') + '</button>' +
+    (o.center ? '<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' + o.center[0] + ',' + o.center[1] + '">Cómo llegar</a>' : '') + '</div>' +
+    '<div class="btns"><button class="btn" data-act="close">Cerrar</button></div><div class="src">Fuente: SIGPAC · FEGA</div>', 'info');
+}
+function problem(title, msg) {
+  openSheet('<h2>' + esc(title) + '</h2><div class="msg">' + esc(msg) + '</div><div class="btns"><button class="btn" data-act="close">Cerrar</button></div>', 'err');
+}
+async function getJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+async function identify(ll) {
+  if (map.getZoom() < 13) { map.setView(ll, 16); return; }
+  openSheet('<h2>Buscando parcela…</h2>', 'wait');
+  try {
+    const j = await getJson(CFG.query + 'recinfobypoint/4258/' + ll.lng.toFixed(7) + '/' + ll.lat.toFixed(7) + '.json');
+    const o = Array.isArray(j) ? j[0] : j;
+    if (!o || (Array.isArray(j) && !j.length)) return problem('Sin parcela aquí', 'No hay ningún recinto SIGPAC en el punto que has tocado.');
+    const n = norm(o); if (!n.center) n.center = [ll.lat, ll.lng];
+    openInfo(n, false);
+  } catch (e) {
+    problem('No se pudo consultar', (navigator.onLine ? 'El servicio del SIGPAC no respondió (' + e.message + ').' : 'No hay conexión a internet.') + ' Inténtalo de nuevo en unos segundos.');
+  }
+}
+async function doSearch(f) {
+  const v = n => f.elements[n].value.trim();
+  const url = CFG.query + 'recinfo/' + [Number(v('prov')), Number(v('mun')), 0, 0, Number(v('pol')), Number(v('parc')), Number(v('rec') || 1)].join('/') + '.json';
+  openSheet('<h2>Buscando parcela…</h2>', 'wait');
+  try {
+    const j = await getJson(url);
+    const o = Array.isArray(j) ? j[0] : j;
+    if (!o || (Array.isArray(j) && !j.length)) return problem('No encontrada', 'Revisa el código del municipio, el polígono y la parcela.');
+    const n = norm(o);
+    if (!n.rings.length) { n.rings = []; }
+    openInfo(n, true);
+    if (!n.rings.length && n.center) map.setView(n.center, 17);
+  } catch (e) {
+    problem('No se pudo buscar', 'El servicio no respondió (' + e.message + '). Comprueba los datos y la conexión.');
+  }
+}
+
+/* ---------- Pantallas ---------- */
+function viewSearch() {
+  openSheet('<h2 style="margin-bottom:12px">Buscar parcela</h2><form id="fs">' +
+    '<div class="frow"><div><label for="prov">Provincia</label><select id="prov" name="prov">' + PROV.map((p, i) => '<option value="' + (i + 1) + '"' + (i === 15 ? ' selected' : '') + '>' + String(i + 1).padStart(2, '0') + ' · ' + p + '</option>').join('') + '</select></div></div>' +
+    '<div class="frow"><div><label for="mun">Código de municipio</label><input id="mun" name="mun" inputmode="numeric" required placeholder="ej. 12"></div></div>' +
+    '<div class="frow"><div><label for="pol">Polígono</label><input id="pol" name="pol" inputmode="numeric" required></div><div><label for="parc">Parcela</label><input id="parc" name="parc" inputmode="numeric" required></div><div><label for="rec">Recinto</label><input id="rec" name="rec" inputmode="numeric" placeholder="1"></div></div>' +
+    '<div class="btns"><button class="btn pri" type="submit">Localizar en el mapa</button></div></form>' +
+    '<div class="btns"><button class="btn" data-act="close">Cerrar</button></div>', 'search');
+}
+function viewLayers() {
+  const t = (id, name, bg) => '<button data-act="base" data-id="' + id + '" class="' + (cfg.base === id ? 'on' : '') + '"><i style="background:' + bg + '"></i>' + name + '</button>';
+  openSheet('<h2 style="margin-bottom:12px">Capas</h2><h3 style="margin-top:0">Mapa base</h3><div class="tiles">' +
+    t('orto', 'Ortofoto', 'linear-gradient(135deg,#9DB36A 0 40%,#C8B878 40% 70%,#A98B62 70%)') + t('calle', 'Callejero', 'repeating-linear-gradient(90deg,#EDE9DD 0 18px,#fff 18px 24px)') + t('topo', 'Topográfico', 'repeating-radial-gradient(circle at 50% 60%,#E4EBD6 0 8px,#B58B5A 8px 9px)') + '</div>' +
+    '<h3>Capas del SIGPAC</h3><div class="sw"><div><b>Recintos</b><small>Límites de parcelas y recintos (zoom 13 o más)</small></div><button class="tg' + (cfg.rec ? ' on' : '') + '" data-act="rec" role="switch" aria-checked="' + cfg.rec + '" aria-label="Recintos"></button></div>' +
+    '<div style="display:flex;justify-content:space-between"><label for="op">Opacidad de las capas</label><b id="opv">' + Math.round(cfg.op * 100) + ' %</b></div><input id="op" type="range" min="0" max="100" value="' + Math.round(cfg.op * 100) + '" style="padding:0;height:32px;border:none;accent-color:#1F7A4D">' +
+    '<h3>Diagnóstico</h3><div class="sub" style="font-size:12px;word-break:break-word">Teselas del SIGPAC: ' + diag.ok + ' correctas, ' + diag.err + ' con error.<br>Capa usada: ' + esc(CFG.wmsLayer) + '<br>Capas del servicio: ' + esc(diag.layers || 'consultando…') + '</div>' +
+    '<div class="btns"><button class="btn pri" data-act="close">Listo</button></div>', 'layers');
+}
+function viewSaved() {
+  const rows = saved.length ? saved.map((s, i) => '<div class="item"><button class="m" data-act="goto" data-i="' + i + '"><b>Pol. ' + esc(s.pol) + ' · Parc. ' + esc(s.parc) + '</b><span>' + esc((USOS[s.uso] || s.uso || '—') + (s.ha != null ? ' · ' + Number(s.ha).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ha' : '')) + '</span></button><button class="x" data-act="del" data-i="' + i + '" aria-label="Eliminar">✕</button></div>').join('') : '<div class="msg" style="background:var(--bg);color:var(--mut)">Aún no has guardado ninguna parcela. Toca una parcela en el mapa y pulsa «Guardar en mis parcelas».</div>';
+  openSheet('<h2 style="margin-bottom:8px">Mis parcelas</h2>' + rows + '<div class="btns"><button class="btn" data-act="close">Cerrar</button></div>', 'saved');
+}
+
+/* ---------- Medir ---------- */
+const meas = { on: false, mode: 'area', pts: [], g: L.layerGroup() };
+function startMeasure() { meas.on = true; meas.g.addTo(map); $('#bMeasure').classList.add('on'); drawMeasure(); }
+function endMeasure() { meas.on = false; meas.pts = []; meas.g.clearLayers(); map.removeLayer(meas.g); $('#bMeasure').classList.remove('on'); }
+function drawMeasure() {
+  const p = meas.pts, area = meas.mode === 'area';
+  meas.g.clearLayers();
+  if (p.length > 1) (area && p.length > 2 ? L.polygon(p, { color: '#12201A', weight: 3, fillColor: '#fff', fillOpacity: .28, interactive: false }) : L.polyline(p, { color: '#fff', weight: 3, interactive: false })).addTo(meas.g);
+  p.forEach((q, i) => L.circleMarker(q, { radius: i === p.length - 1 ? 8 : 6, color: '#12201A', weight: 2.5, fillColor: i === p.length - 1 ? '#1F7A4D' : '#fff', fillOpacity: 1, interactive: false }).addTo(meas.g));
+  let tot = 0;
+  const segs = []; for (let i = 0; i < p.length - 1; i++) segs.push([p[i], p[i + 1]]);
+  if (area && p.length > 2) segs.push([p[p.length - 1], p[0]]);
+  segs.forEach(s => { const d = hav(s[0], s[1]); tot += d; L.marker([(s[0][0] + s[1][0]) / 2, (s[0][1] + s[1][1]) / 2], { interactive: false, icon: L.divIcon({ className: 'seglbl', html: fmtM(d) }) }).addTo(meas.g); });
+  const big = area ? (p.length > 2 ? fmtHa(ringArea(p)) : '—') : fmtM(tot);
+  const html = '<div class="seg"><button data-act="mm" data-m="dist" class="' + (area ? '' : 'on') + '">Distancia</button><button data-act="mm" data-m="area" class="' + (area ? 'on' : '') + '">Superficie</button></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end"><div><div class="sub" style="font-size:13px">' + (area ? 'Superficie' : 'Distancia') + '</div><div class="big">' + big + '</div></div>' +
+    '<div style="text-align:right"><div class="sub" style="font-size:13px">' + (area ? 'Perímetro' : 'Puntos') + '</div><b style="font-size:20px">' + (area ? fmtM(tot) : p.length) + '</b></div></div>' +
+    '<div class="sub" style="font-size:13px;margin-top:4px">' + (p.length ? p.length + (p.length === 1 ? ' punto' : ' puntos') + ' · toca el mapa para añadir otro' : 'Toca el mapa para empezar a medir') + '</div>' +
+    '<div class="btns"><button class="btn" data-act="mundo">Deshacer</button><button class="btn" data-act="mclear">Borrar</button><button class="btn pri" data-act="close">Cerrar</button></div>';
+  if (cur !== 'measure') { sheet.innerHTML = '<div class="handle"></div>' + html; sheet.hidden = false; document.body.classList.add('so'); cur = 'measure'; }
+  else sheet.innerHTML = '<div class="handle"></div>' + html;
+}
+
+/* ---------- Eventos ---------- */
+map.on('click', e => {
+  if (meas.on) { meas.pts.push([e.latlng.lat, e.latlng.lng]); drawMeasure(); }
+  else identify(e.latlng);
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const d = b.dataset;
+  switch (d.act) {
+    case 'search': viewSearch(); break;
+    case 'layers': viewLayers(); break;
+    case 'saved': viewSaved(); break;
+    case 'close': closeSheet(); break;
+    case 'me': follow = true; if (here) map.setView(here, Math.max(map.getZoom(), 17)); break;
+    case 'base': setBase(d.id); viewLayers(); break;
+    case 'rec': cfg.rec = !cfg.rec; store.set('cfg', cfg); if (cfg.rec) rec.addTo(map); else map.removeLayer(rec); viewLayers(); break;
+    case 'measure': if (meas.on) closeSheet(); else { cleanup('measure'); startMeasure(); } break;
+    case 'mm': meas.mode = d.m; drawMeasure(); break;
+    case 'mundo': meas.pts.pop(); drawMeasure(); break;
+    case 'mclear': meas.pts = []; drawMeasure(); break;
+    case 'save':
+      if (!curInfo) break;
+      if (isSaved(curInfo.ref)) saved = saved.filter(s => s.ref !== curInfo.ref);
+      else saved.unshift({ ref: curInfo.ref, pol: curInfo.pol, parc: curInfo.parc, rec: curInfo.rec, uso: curInfo.uso, ha: curInfo.ha, center: curInfo.center, rings: curInfo.rings.slice(0, 3) });
+      store.set('saved', saved); openInfo(curInfo, false); break;
+    case 'goto': { const s = saved[Number(d.i)]; if (!s) break; const o = Object.assign({ pend: '', riego: '', alt: '', rings: [] }, s); openInfo(o, true); if (!o.rings.length && o.center) map.setView(o.center, 17); break; }
+    case 'del': saved.splice(Number(d.i), 1); store.set('saved', saved); viewSaved(); break;
+  }
+});
+document.addEventListener('submit', e => { if (e.target.id === 'fs') { e.preventDefault(); doSearch(e.target); } });
+document.addEventListener('input', e => {
+  if (e.target.id === 'op') { cfg.op = Number(e.target.value) / 100; $('#opv').textContent = e.target.value + ' %'; if (rec) rec.setOpacity(cfg.op); store.set('cfg', cfg); }
+});
+
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
